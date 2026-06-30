@@ -221,7 +221,7 @@ The `mcp_dispatch.lsp` dispatcher is fully compatible with LT 2024+.
 
 ## 踩坑记录 — 开发中遇到的实际问题
 
-> 这是一个学生实验项目，目的是探索 AI+CAD 自动化的可行性。以下如实记录开发过程中遇到的坑，供后来的同学参考。
+> Engineering internship project — exploring AI-driven CAD automation feasibility. 以下如实记录开发过程中遇到的坑，既是自我复盘，也供后来者参考。
 
 ### 1. 中文图层名导致 IPC 超时（已解决）
 
