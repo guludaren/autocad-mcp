@@ -219,6 +219,48 @@ The `mcp_dispatch.lsp` dispatcher is fully compatible with LT 2024+.
 - **Configurable IPC timeout** — `AUTOCAD_MCP_IPC_TIMEOUT` env var (1–300 seconds, default 10).
 - **Thread-safe backend init** — `asyncio.Lock` prevents parallel initialization races.
 
+## 踩坑记录 — 开发中遇到的实际问题
+
+> 这是一个学生实验项目，目的是探索 AI+CAD 自动化的可行性。以下如实记录开发过程中遇到的坑，供后来的同学参考。
+
+### 1. 中文图层名导致 IPC 超时（已解决）
+
+**现象**：Python 端发送 `setvar CLAYER` 命令后，AutoCAD 端无响应，MCP 调用超时。
+
+**根因**：Python `json.dumps` 默认 `ensure_ascii=True`，把中文字符（如「粗实线」）转成 `\uXXXX` 编码。AutoLISP 端的 `mcp-json-get-string` 只做简单字符串提取，不解码 `\uXXXX` 转义序列，导致 AutoCAD 收到的 layer name 是乱码，`setvar` 命令失败。
+
+**解决**：将图层名全部改为英文（Thick / Thin / Center / Dim / Text / Hatch），或修改 Python 端使用 `ensure_ascii=False`。
+
+**教训**：跨语言（Python ↔ AutoLISP）IPC 通信时，编码一致性问题是最容易忽略的坑。
+
+### 2. execute_lisp 超时但实体已创建
+
+**现象**：通过 `execute_lisp` 发送 `(command ...)` 类命令时，Python 端报超时错误，但打开 AutoCAD 发现实体其实已经画上去了。
+
+**根因**：`(command ...)` 在 AutoLISP 中是同步阻塞的，执行时间取决于命令复杂度。MCP 的 IPC 超时设置（默认 10 秒）在复杂绘图命令下不够用，但 LISP 侧的 `(command)` 调用已经完成了。
+
+**当前策略**：接受超时 → 通过 `get_screenshot` 截图验证实体是否实际创建成功。这是权宜之计，更好的方案是实现异步回调机制。
+
+### 3. LISP 调度器需每次手动加载
+
+每次打开 AutoCAD 后需手动 `APPLOAD` 加载 `mcp_dispatch.lsp`，或使用 Python 端 `WM_CHAR` 自动发送 `(load "...")` 命令。理想方案是加入 AutoCAD Startup Suite，但目前未自动化此步骤。
+
+### 4. COM 接口对复杂曲线的限制
+
+AutoCAD COM 接口（ActiveX）对渐开线齿廓、样条曲线等复杂几何的原生支持有限。对于齿轮工程图等场景，需要结合 AutoLISP 脚本或 ezdxf 后端在 Python 层面生成曲线数据再导入。
+
+### 5. ezdxf 后端与 File IPC 后端的功能差异
+
+ezdxf（headless）后端无需 AutoCAD 即可运行，但不支持 `offset`、`fillet`、`chamfer`、`plot_pdf`、`execute_lisp` 等依赖 AutoCAD 运行时 API 的操作。两个后端的行为差异容易让调用方困惑——同一段 MCP 调用在 File IPC 下成功、在 ezdxf 下静默失败。
+
+---
+
+**总结**：这个项目让我真正理解了「AI 落地的最后一公里」——不是模型不够聪明，而是工程环境（编码、IPC、超时、不同后端的一致性）里藏着一堆需要逐个解决的小问题。这些问题在教科书和 API 文档里都不会告诉你。
+
+## 关于本项目
+
+本项目 fork 自 [puran-water/autocad-mcp](https://github.com/puran-water/autocad-mcp)，感谢原作者的开源工作。
+
 ## License
 
 MIT
