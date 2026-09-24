@@ -1,0 +1,298 @@
+{
+  "units": "mm",
+  "scale": 0.2,
+  "width": 200.0,
+  "height": 152.0,
+  "layers": [
+    {
+      "name": "Center",
+      "color": 4,
+      "linetype": "CENTER",
+      "lineweight": 70
+    },
+    {
+      "name": "Hidden",
+      "color": 8,
+      "linetype": "DASHED",
+      "lineweight": 140
+    },
+    {
+      "name": "Outline",
+      "color": 7,
+      "linetype": "CONTINUOUS",
+      "lineweight": 70
+    }
+  ],
+  "entities": [
+    {
+      "index": 0,
+      "kind": "CIRCLE",
+      "layer": "Outline",
+      "role": "outline",
+      "confidence": 1.0,
+      "center": [
+        66.15,
+        75.95
+      ],
+      "radius": 22.459999084472656,
+      "fit_rms": 0.0
+    },
+    {
+      "index": 1,
+      "kind": "ARC",
+      "layer": "Outline",
+      "role": "outline",
+      "confidence": 1.0,
+      "center": [
+        140.1006631752844,
+        75.83530463934332
+      ],
+      "radius": 27.839338848656453,
+      "start_angle": 238.89713290377068,
+      "end_angle": 1.1595345027115513,
+      "fit_rms": 0.4097474077810983
+    },
+    {
+      "index": 2,
+      "kind": "LINE",
+      "layer": "Outline",
+      "role": "outline",
+      "confidence": 1.0,
+      "start": [
+        23.0,
+        24.0
+      ],
+      "end": [
+        176.8,
+        24.0
+      ]
+    },
+    {
+      "index": 3,
+      "kind": "LINE",
+      "layer": "Outline",
+      "role": "outline",
+      "confidence": 1.0,
+      "start": [
+        24.5,
+        127.9
+      ],
+      "end": [
+        176.8,
+        128.0
+      ]
+    },
+    {
+      "index": 4,
+      "kind": "LINE",
+      "layer": "Outline",
+      "role": "outline",
+      "confidence": 1.0,
+      "start": [
+        175.20000000000002,
+        23.8
+      ],
+      "end": [
+        175.20000000000002,
+        128.20000000000002
+      ]
+    },
+    {
+      "index": 5,
+      "kind": "LINE",
+      "layer": "Outline",
+      "role": "outline",
+      "confidence": 1.0,
+      "start": [
+        24.8,
+        24.200000000000003
+      ],
+      "end": [
+        24.5,
+        127.9
+      ]
+    },
+    {
+      "index": 6,
+      "kind": "LINE",
+      "layer": "Hidden",
+      "role": "hidden",
+      "confidence": 0.85,
+      "start": [
+        35.82358664308275,
+        115.2972653695516
+      ],
+      "end": [
+        155.1768582888197,
+        113.12720588508364
+      ]
+    },
+    {
+      "index": 7,
+      "kind": "LINE",
+      "layer": "Hidden",
+      "role": "hidden",
+      "confidence": 0.7,
+      "start": [
+        35.800000000000004,
+        39.94545454545455
+      ],
+      "end": [
+        89.0,
+        39.94545454545455
+      ]
+    },
+    {
+      "index": 8,
+      "kind": "LINE",
+      "layer": "Hidden",
+      "role": "hidden",
+      "confidence": 0.7,
+      "start": [
+        99.80000000000001,
+        40.06666666666668
+      ],
+      "end": [
+        161.0,
+        40.06666666666668
+      ]
+    },
+    {
+      "index": 9,
+      "kind": "LINE",
+      "layer": "Center",
+      "role": "center",
+      "confidence": 0.8,
+      "start": [
+        66.0,
+        53.400000000000006
+      ],
+      "end": [
+        66.0,
+        108.2
+      ]
+    },
+    {
+      "index": 10,
+      "kind": "LINE",
+      "layer": "Center",
+      "role": "center",
+      "confidence": 0.8,
+      "start": [
+        33.800000000000004,
+        76.0
+      ],
+      "end": [
+        88.60000000000001,
+        76.0
+      ]
+    }
+  ],
+  "stats": {
+    "entities": 11,
+    "by_kind": {
+      "CIRCLE": 1,
+      "ARC": 1,
+      "LINE": 9
+    },
+    "by_layer": {
+      "Outline": 6,
+      "Hidden": 3,
+      "Center": 2
+    },
+    "by_linetype": {
+      "CONTINUOUS": 6,
+      "DASHED": 3,
+      "CENTER": 2
+    }
+  },
+  "diagnostics": [
+    {
+      "code": "image",
+      "message": "working resolution 1000x760 px, upscale x1"
+    },
+    {
+      "code": "weld",
+      "message": "2 near-coincident endpoint(s) welded"
+    },
+    {
+      "code": "vectorize",
+      "message": "9 lines, 2 circles/arcs detected"
+    },
+    {
+      "code": "semantic",
+      "message": "11 entities grouped into 3 semantic layers"
+    }
+  ],
+  "notes": {
+    "welding": {
+      "tolerance": 0.7,
+      "welded_endpoints": 2,
+      "arc_endpoints_snapped": 0,
+      "dangling_endpoints": 16
+    },
+    "vectorize": {
+      "upscale": 1.0,
+      "stroke_width_px": 8.0,
+      "segments": 9,
+      "rounds": 2,
+      "linetypes": {
+        "CONTINUOUS": 10,
+        "DASHED": 1,
+        "HIDDEN": 2,
+        "CENTER": 2
+      }
+    },
+    "semantic": {
+      "drawing_type": "mechanical part",
+      "summary": "A rectangular plate outline with a circular boss and a large arc feature, plus hidden edges and centre lines indicating internal or obscured geometry.",
+      "layers": [
+        {
+          "name": "Outline",
+          "entities": [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5
+          ],
+          "reason": "Continuous thick lines forming the visible outer boundary, circular boss, and arc feature of the part."
+        },
+        {
+          "name": "Hidden",
+          "entities": [
+            6,
+            7,
+            8
+          ],
+          "reason": "Dashed/hidden lines representing obscured internal edges or features."
+        },
+        {
+          "name": "Center",
+          "entities": [
+            9,
+            10
+          ],
+          "reason": "Centre lines marking axes of symmetry for the circular and arc features."
+        }
+      ],
+      "warnings": [
+        "16 dangling endpoints detected; some outline segments may not be properly connected.",
+        "Hidden line entity 6 uses DASHED linetype while entities 7 and 8 use HIDDEN; inconsistent linetype assignment for hidden geometry.",
+        "Only 2 welded endpoints found; the rectangular outline may have gaps at corners.",
+        "Arc entity 1 has a large angular span (approximately 237 degrees) and may represent a partial circular feature that could be misread.",
+        "No dimensions or text entities were extracted; the drawing may lack annotations or they were not detected."
+      ],
+      "assigned": 11,
+      "unassigned": 0,
+      "rejected": {
+        "unknown_index": 0,
+        "duplicate_index": 0,
+        "empty_layer": 0
+      },
+      "source": "deepseek:deepseek-chat",
+      "renamed_entities": 6
+    }
+  }
+}

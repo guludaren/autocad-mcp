@@ -1,15 +1,16 @@
 # AutoCAD MCP Server
 
-MCP server for AutoCAD LT automation and headless DXF generation.
+MCP server for AutoCAD LT automation, headless DXF generation, and **image → DXF tracing**.
 
-Two backends, one API:
+Three capabilities, one server:
 
-| Backend | Runtime | Requires AutoCAD? | Screenshot |
+| Capability | Runtime | Requires AutoCAD? | Notes |
 |---------|---------|-------------------|------------|
-| **File IPC** | Windows Python | Yes — AutoCAD LT 2024+ (Windows) | Win32 PrintWindow |
-| **ezdxf** | Any platform | No (headless) | matplotlib render |
+| **File IPC** backend | Windows Python | Yes — AutoCAD LT 2024+ (Windows) | Win32 PrintWindow screenshots |
+| **ezdxf** backend | Any platform | No (headless) | in-memory DXF, matplotlib render |
+| **Image → DXF tracing** | Any platform | No | OpenCV vectorisation + optional DeepSeek semantic pass — see [docs/image-to-dxf.md](docs/image-to-dxf.md) |
 
-The server exposes **8 consolidated tools** (`drawing`, `entity`, `layer`, `block`, `annotation`, `pid`, `view`, `system`) over the MCP stdio transport. An MCP client (Claude Desktop, Claude Code, etc.) connects and drives AutoCAD through natural-language requests.
+The server exposes **9 consolidated tools** (`drawing`, `entity`, `layer`, `block`, `annotation`, `pid`, `view`, `system`, `trace`) over the MCP stdio transport. An MCP client (Claude Desktop, Claude Code, etc.) connects and drives AutoCAD through natural-language requests.
 
 ## Prerequisites (File IPC backend)
 
@@ -157,6 +158,29 @@ Screenshots use `PrintWindow` (Win32) for the File IPC backend — works even wh
 
 > `execute_lisp` runs arbitrary AutoLISP code (File IPC only). Pass `data: {code: "(+ 1 2)"}`. This turns the server into an extensible automation platform — any valid AutoLISP expression can be executed.
 
+### `trace` — Image → DXF (no vision model required)
+
+Turn a screenshot, scan or photo of a **simple** drawing into a layered DXF file. Geometry is extracted with OpenCV — deterministically, locally, with no vision model and no API key — and an optional DeepSeek (text-only) pass names and groups what was found.
+
+| Operation | Description |
+|-----------|-------------|
+| `image_to_dxf` | Trace and write a DXF. `data: {image, dxf?, scale?, width?, units?, use_llm?, preview?}` |
+| `vectorize` | Extract the CAD IR only, no file written |
+| `describe` | Trace in memory and return the semantic layer |
+
+```powershell
+# Same feature from the command line, no MCP client needed
+autocad-trace drawing.png -o drawing.dxf --width 200 --units mm --preview traced.png
+```
+
+What it actually solves, measured rather than guessed:
+
+- **Complete geometry** — every stroke is extracted from the pixels; nothing is hallucinated and nothing is silently dropped (`counters` reports what was found).
+- **Line styles are measured, not guessed** — ink run-length analysis classifies `CONTINUOUS` / `DASHED` / `HIDDEN` / `CENTER` / `PHANTOM` per entity, and stroke width maps to ISO lineweights and conventional layers.
+- **Arcs land on their two points** — arcs are fitted from pixels into canonical centre/radius/angles form, then snapped onto neighbouring line vertices.
+
+Full design notes, tuning knobs and known limitations: **[docs/image-to-dxf.md](docs/image-to-dxf.md)**. A generated example lives in [`examples/`](examples/) (`python examples/make_example.py`).
+
 ## Architecture
 
 ```
@@ -168,7 +192,12 @@ Python MCP Server (autocad_mcp)
     ├── File IPC Backend ──► C:/temp/*.json ──► mcp_dispatch.lsp (AutoCAD LT)
     │   PostMessageW(WM_CHAR) to MDIClient — no focus steal
     │
-    └── ezdxf Backend ──► in-memory DXF (headless, no AutoCAD needed)
+    ├── ezdxf Backend ──► in-memory DXF (headless, no AutoCAD needed)
+    │
+    └── trace (image → DXF) ──► OpenCV vectorisation ──► CAD IR ──► ezdxf
+                                    │                      │
+                                    │                      └── optional DeepSeek (text only)
+                                    └── deterministic: complete geometry, measured linetypes
 ```
 
 The File IPC backend sends keystrokes to AutoCAD's MDIClient window via `PostMessageW(WM_CHAR)`, triggering the `(c:mcp-dispatch)` AutoLISP command. This approach does **not** steal window focus — you can continue working in other applications while automation runs.
@@ -204,6 +233,16 @@ AutoLISP was added to AutoCAD LT in the **2024 release (Windows only)**. AutoCAD
 | Selection sets | AutoLISP on Mac |
 
 The `mcp_dispatch.lsp` dispatcher is fully compatible with LT 2024+.
+
+## What's New in v3.2
+
+- **Image → DXF tracing** (`trace` tool + `autocad-trace` CLI) — the `image_to_dxf`, `vectorize` and `describe` operations described above, with a full write-up in [docs/image-to-dxf.md](docs/image-to-dxf.md).
+- **Deterministic geometry extraction** — no vision model, no API key, works offline: binarisation with polarity auto-detection, auto-upscale for hairline art, collinear merging with midline recentring, contour + Hough circle detection validated against the ink.
+- **Measured linetypes** — `CONTINUOUS` / `DASHED` / `HIDDEN` / `CENTER` / `PHANTOM` from ink run-length analysis, plus ISO lineweights and conventional layer names.
+- **Arcs that close on their endpoints** — canonical arc fitting, endpoint welding, and arc-angle snapping onto line vertices.
+- **Optional DeepSeek semantic pass** — the model receives a JSON digest of verified geometry (never pixels) and returns validated layer names and a drawing summary; with no key, the deterministic labelling stands.
+- **New modules**: `autocad_mcp.trace.{ir,geometry,linetype,vectorize,deepseek,semantics,emit,pipeline,cli}` and `examples/make_example.py`.
+- **40 new tests** covering arc geometry, linetype classification, the end-to-end trace, and semantic-response validation.
 
 ## What's New in v3.1
 
@@ -252,6 +291,40 @@ AutoCAD COM 接口（ActiveX）对渐开线齿廓、样条曲线等复杂几何�
 ### 5. ezdxf 后端与 File IPC 后端的功能差异
 
 ezdxf（headless）后端无需 AutoCAD 即可运行，但不支持 `offset`、`fillet`、`chamfer`、`plot_pdf`、`execute_lisp` 等依赖 AutoCAD 运行时 API 的操作。两个后端的行为差异容易让调用方困惑——同一段 MCP 调用在 File IPC 下成功、在 ezdxf 下静默失败。
+
+### 6. 「把图丢给大模型生成 DXF」这条路走不通（v3.2 的根本动机）
+
+**现象**：最初的思路是「一张图 → 交给 AI → AI 按 CAD 命令生成 DXF」。实际结果是图纸读不全、线型分不出来、圆弧对不上点。
+
+**根因**（三个独立的坑，不是模型不够聪明）：
+
+1. **DeepSeek 的公开 API 根本没有视觉能力**，而换用识图能力有限的模型时，细线、小圆弧、虚线的间隙大量丢失——更麻烦的是**丢了你也看不出来**，因为它会照样给你一份看起来合理的输出。
+2. **线型不是"算"出来的，是"量"出来的**。让一个只会算坐标的模型判断实线还是虚线，它只能猜；而猜错在图纸上是实质错误（实线/虚线在制图里是不同语义：轮廓 vs 不可见边）。
+3. **圆弧需要的是拟合，不是端点坐标**。只给两个端点，模型给出的圆心/半径/起止角往往不经过这两个点——数值看着正常，几何是错的。
+
+**解决**（v3.2 的架构）：**"看见"这件事不交给大模型。** 几何用 OpenCV 确定性提取（读全、不幻觉、不静默丢失），线型用沿线墨迹游程分析量出来，圆弧用像素拟合 + 端点吸附对齐；大模型只拿一份**几何 JSON 摘要**（不含任何像素）去做它真正擅长的事——命名图层、分组、写图纸摘要。没有 API key 时，确定性分类照常给出可用的分层 DXF。
+
+**教训**：判断一个任务该不该交给 LLM，先看它需要的是**测量**还是**命名**。测量类任务（坐标、长度、线型、几何一致性）交给确定性算法；命名与归纳类任务才交给模型。
+
+### 7. 虚线被拆成十几条"实线"（开发中最耗时的坑）
+
+**现象**：一张图上的虚线，识别结果是十几段独立的实线，图层也乱了。
+
+**根因**：单段虚线（一条 dash）自身**没有任何内部间隙**——单独量它，它和实线完全无法区分。Hough 检测天然会把虚线按 dash 拆开，于是每一段都被判成 CONTINUOUS。
+
+**解决**：把顺序改成 **先量、再链、最后判**——先测每段的位置与笔画宽度，再把共线片段跨虚线间隙链接成整条线（短片段用更宽的间隙阈值，因为长划中心线的长划之间隔着一整个周期），最后用**整条线**的墨迹图案判一次线型。
+
+**教训**：抽样的**顺序**会决定结论的对错。同一个像素集，切成碎片判断和合并后判断，得到的是两种答案。
+
+### 8. 「中线校正」把线推得更偏（符号写反）
+
+**现象**：矩形四条边识别出来位置整体偏了约 8–10px（差不多一个线宽的两倍）。
+
+**根因**：粗线经 Canny 会得到一对边缘，合并时要把结果拉回笔画中线。校正量的符号写反了——`signed_offset` 与校正方向用了相反的符号约定，于是"校正"变成了"加速偏离"，偏移量正好是 2× 半线宽。
+
+**解决**：统一符号约定并写进文档字符串；再加一步"按实际墨迹重新居中"（把线段沿法向滑动，取墨迹最多的一档），把 Canny/Hough 残留的半个线宽偏差一并消掉。
+
+**教训**：涉及方向的几何代码，符号约定必须显式写出来并配单元测试。这类 bug 不会崩、不会报错，只会让所有坐标静默偏移。
 
 ---
 

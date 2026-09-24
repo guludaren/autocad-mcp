@@ -1,6 +1,6 @@
-"""AutoCAD MCP Server v3.1 — 8 consolidated tools with operation dispatch.
+"""AutoCAD MCP Server v3.2 — 9 consolidated tools with operation dispatch.
 
-Tools: drawing, entity, layer, block, annotation, pid, view, system
+Tools: drawing, entity, layer, block, annotation, pid, view, system, trace
 """
 
 from __future__ import annotations
@@ -517,6 +517,69 @@ async def system(
         return await add_screenshot_if_available(result, include_screenshot)
     else:
         return _json({"error": f"Unknown system operation: {operation}"})
+
+
+# ==========================================================================
+# 9. trace — image → DXF (deterministic geometry + optional DeepSeek semantics)
+# ==========================================================================
+
+
+@mcp.tool(annotations={"title": "Image → DXF Tracing", "readOnlyHint": False})
+@_safe("trace")
+async def trace(
+    operation: str,
+    data: dict | None = None,
+    include_screenshot: bool = False,
+) -> ToolResult:
+    """Trace a raster drawing (PNG/JPG) into a layered DXF file.
+
+    Works on any backend and without AutoCAD: geometry is extracted locally with
+    OpenCV, so no vision model and no API key is required. An optional DeepSeek
+    (text-only) pass names and groups the extracted geometry.
+
+    Operations:
+      image_to_dxf — Trace and write a DXF.
+                     data: {image, dxf?, scale?, width?, units?, use_llm?, preview?}
+      vectorize    — Extract the CAD IR only (no file written). data: {image, scale?, width?}
+      describe     — Trace in memory and return the semantic layer. data: {image, ...}
+    """
+    data = data or {}
+    image = data.get("image") or data.get("path")
+    if not image:
+        return _json({"error": "data.image is required", "hint": "pass the path of a PNG/JPG drawing"})
+
+    try:
+        from autocad_mcp.trace.pipeline import TraceOptions, resolve_scale, trace_image
+        from autocad_mcp.trace.vectorize import VectorizeOptions
+    except ImportError as exc:
+        return _json(
+            {
+                "error": f"image tracing needs OpenCV and NumPy: {exc}",
+                "hint": "pip install opencv-python-headless numpy",
+            }
+        )
+
+    try:
+        scale = resolve_scale(image, float(data.get("scale", 1.0) or 1.0), data.get("width"))
+    except Exception as exc:
+        return _json({"error": f"cannot read image: {exc}"})
+
+    options = TraceOptions(
+        vectorize=VectorizeOptions(
+            threshold=data.get("threshold", "otsu"),
+            scale=scale,
+            units=data.get("units", "mm"),
+            min_line_px=float(data.get("min_line", 22.0)),
+            max_gap_px=float(data.get("max_gap", 9.0)),
+        ),
+        use_llm=bool(data.get("use_llm", True)),
+        write_dxf=operation == "image_to_dxf",
+        dxf_path=data.get("dxf"),
+        preview_path=data.get("preview"),
+        json_path=data.get("json"),
+    )
+    result = trace_image(image, options)
+    return _json(result.to_dict(include_ir=False, include_entities=operation != "image_to_dxf"))
 
 
 # ==========================================================================
